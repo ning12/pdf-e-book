@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <!-- 兼容 -->
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <title>电子书</title>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.css">
+  <link href="./css/basic.css" rel="stylesheet" type="text/css">
+  <script src="./js/jquery.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap-select/1.14.0-beta/js/bootstrap-select.min.js"></script>
+  <script src="./js/turn.js"></script>
+  <script src="./js/pdf.js"></script>
+  <script src="./js/pdf.worker.js"></script>
+  <script src='./js/jquery.mousewheel.js'></script>
+  <script src="//apps.bdimg.com/libs/jqueryui/1.10.4/jquery-ui.min.js"></script>
+  <style>
+
+  </style>
+</head>
+
+<body>
+  <div id="carga">
+    <embed src="img/5.gif" class="centrar" /></div>
+  <div class="menu1" onclick="previous();">
+    <img src="img/previous_arrow.png" width="35" height="35" alt="">
+  </div>
+  <div class="menu2" onclick="next();">
+    <img src="img/next_arrow.png" width="35" height="35" alt="">
+  </div>
+  <div class="containers draggable" id="fullscreen">
+    <div class="canvas-wrap flipbook" id="flipbook"></div>
+  </div>
+  <div class="footer-btn">
+    <div class='pre-btn mr' onclick="previous();"><img src="img/zuo.png" width="30" height="24" alt=""></div>
+    <div class="page-num">
+      <input class='page-input' type='text' id='pageInput'></input>
+    </div>
+    <div class="next-btn ml" onclick="next();"><img src="img/you.png" width="30" height="24" alt=""></div>
+    <div class="enlarge"
+      onclick="if(window.parent.document.body.style.zoom!=0) window.parent.document.body.style.zoom*=1.2; else window.parent.document.body.style.zoom=1.2;">
+      <img src="img/fangda.png" width="30" height="30" alt="">
+    </div>
+    <div class="scale"
+      onclick="if(window.parent.document.body.style.zoom!=0) window.parent.document.body.style.zoom*=0.8; else window.parent.document.body.style.zoom=0.8;">
+      <img src="img/suoxiao-.png" width="28" height="28" alt="">
+    </div>
+  </div>
+  <script>
+    var file;
+    var totalNum;
+    PDFJS.disableWorker = true;
+    $(function () {
+      // file = 'https://cdn.filestackcontent.com/wcrjf9qPTCKXV3hMXDwK'
+      document.body.style.zoom = '0'
+      file = './cc.pdf'
+      PDFJS.getDocument(file).then((pdf) => {
+        var id = '';
+        var template = 'cw-pdf-';
+        totalNum = pdf.numPages;
+        $('#pageInput').val(1 + '/' + totalNum)
+        for (var j = 1; j <= pdf.numPages; j++) {
+          id = template + j;
+          $(".canvas-wrap").html(
+            $(".canvas-wrap").html() +
+            '<div><canvas id="cw-pdf-' +
+            j +
+            '" style="border:1px solid #000; width: 100%; height: 99.8%"></canvas></div>'
+          );
+        }
+        //将pdf渲染到画布上去
+        for (var i = 1; i <= pdf.numPages; i++) {
+          id = template + i;
+          renderPDF(pdf, i, document.getElementById("cw-pdf-" + i));
+        }
+        window.onload = function () {
+          setContent();
+        }
+        var isPCFlag = IsPC();
+        if (isPCFlag) {
+          $(".flipbook").turn({
+            width: '100%',
+            height: '801',
+            display: 'double',
+            elevation: 100,
+            gradients: true,
+            turnCorners: "bl,br",
+            autoCenter: true,
+            acceleration: true,
+            when: {
+              turning: function (page, event, pageObject) {
+                if (pageObject.indexOf(1) > -1) {
+                  $('#pageInput').val(1 + '/' + totalNum)
+                } else if (totalNum % 2 == 0 && pageObject.indexOf(totalNum) > -1) {
+                  $('#pageInput').val(totalNum)
+                } else {
+                  $('#pageInput').val(pageObject[0] + '-' + pageObject[1] + '/' + totalNum)
+                }
+              },
+            },
+          });
+        } else {
+          $(".flipbook").turn({
+            width: '680',
+            height: '480',
+            display: 'single',
+            elevation: 100,
+            gradients: true,
+            turnCorners: "bl,br",
+            autoCenter: true,
+            acceleration: true,
+            when: {
+              turned: function (event, page, view) {
+              },
+            },
+          });
+          $('.footer-btn').css('display', 'none')
+        }
+
+      })
+      $(window).resize(function () {
+        $("body").css("zoom", $(window).width() / 1440);
+      });
+      $(window).bind('keydown', function (e) {
+        if (e.keyCode == 37)
+          $('.flipbook').turn('previous');
+        else if (e.keyCode == 39)
+          $('.flipbook').turn('next');
+      });
+      $(window).bind('mousewheel', function (event, delta, deltaX, deltaY) {
+        if (window.console && console.log) {
+          if (delta > 0) {
+            $('.flipbook').turn('previous');
+          } else {
+            $('.flipbook').turn('next');
+          }
+        }
+      });
+      $("#fullscreen").dblclick(function () {
+        //拖拽事件调用
+        if(document.body.style.zoom>1) {
+          document.body.style.zoom = '0'
+        }else {
+          document.body.style.zoom = '1.2'
+        }
+        $( ".draggable" ).draggable({ scroll: true });
+      });
+      $('.enlarge,.scale').click(function () {
+        $( ".draggable" ).draggable({ scroll: true });
+      })
+
+    })
+
+    function renderPDF(pdf, i, id) {
+      pdf.getPage(i).then(function (page) {
+        var scale = 3;
+        var viewport = page.getViewport(scale);
+        var context = id.getContext("2d");
+        id.height = viewport.height;
+        id.width = viewport.width;
+
+        //
+        // 将 PDF 页面渲染到 canvas 上下文中
+        //
+        var renderContext = {
+          canvasContext: context,
+          viewport: viewport,
+        };
+        page.render(renderContext);
+        $('#carga').css('display', 'none')
+      });
+    }
+
+    function previous() {
+      $(".flipbook").turn('previous')
+    }
+
+    function next() {
+      $(".flipbook").turn('next')
+    }
+
+    function IsPC() {
+      var userAgentInfo = navigator.userAgent;
+      var Agents = ["Android", "iPhone",
+        "SymbianOS", "Windows Phone",
+        "iPad", "iPod"
+      ];
+      var flag = true;
+      for (var v = 0; v < Agents.length; v++) {
+        if (userAgentInfo.indexOf(Agents[v]) > 0) {
+          flag = false;
+          break;
+        }
+      }
+      return flag;
+    };
+  </script>
+</body>
+
+</html>
